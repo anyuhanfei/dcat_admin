@@ -17,7 +17,7 @@ class Pjax
      * @param  Closure  $next
      * @return Response
      */
-    public function handle($request, Closure $next)
+    public function handle(Request $request, Closure $next)
     {
         $response = $next($request);
 
@@ -45,11 +45,15 @@ class Pjax
      */
     protected function handleErrorResponse(Response $response)
     {
-        if (config('app.debug')) {
-            throw $response->exception;
+        $exception = $response->exception ?? null;
+
+        if (! $exception instanceof \Throwable) {
+            throw new \RuntimeException('Failed to handle error response: no exception attached.');
         }
 
-        $exception = $response->exception;
+        if (config('app.debug')) {
+            throw $exception;
+        }
 
         $error = new MessageBag([
             'type'    => get_class($exception),

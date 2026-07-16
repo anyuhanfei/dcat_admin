@@ -3,10 +3,11 @@
 namespace Dcat\Admin\Http\Middleware;
 
 use Dcat\Admin\Admin;
+use Illuminate\Http\Request;
 
 class Application
 {
-    public function handle($request, \Closure $next, $app = null)
+    public function handle(Request $request, \Closure $next, $app = null)
     {
         if ($app) {
             Admin::app()->switch($app);
