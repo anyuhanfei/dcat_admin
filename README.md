@@ -131,20 +131,18 @@ DB_PASSWORD=your_password
 
 > **版本说明**：此仓库的适配分支为 `2.0`，对应的 Composer 版本为 `2.0.x-dev`。请勿使用 `dev-master`，否则会报版本不匹配错误。
 
-#### 方式一：编辑 composer.json（推荐）
+#### 方式一：编辑 composer.json（推荐，使用 SSH）
 
-在宿主项目根目录的 `composer.json` 中修改如下内容（如果已有其他 `repositories` 配置，合并到同一个数组中）：
+> **前置条件**：本机需已配置 GitHub SSH Key。如未配置，请参考 [GitHub SSH 文档](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) 添加。
+
+在宿主项目根目录的 `composer.json` 的 `repositories` 中添加 SSH 仓库地址。**注意：不要在此处配置任何 Composer 镜像**（镜像中 `dcat/laravel-admin` 的元数据来自官方版本，与本 fork 的约束不兼容，会导致依赖解析失败）。如需镜像加速，请全局配置：`composer config -g repos.packagist composer https://mirrors.tencent.com/composer/`。
 
 ```json
 {
     "repositories": [
         {
-            "type": "composer",
-            "url": "https://mirrors.tencent.com/composer/"
-        },
-        {
             "type": "vcs",
-            "url": "https://ghproxy.net/https://github.com/anyuhanfei/dcat_admin"
+            "url": "git@github.com:anyuhanfei/dcat_admin.git"
         }
     ],
     "require": {
@@ -161,36 +159,23 @@ DB_PASSWORD=your_password
 
 | 配置 | 说明 |
 |------|------|
-| `mirrors.tencent.com` | 腾讯云 Composer 镜像（比阿里云镜像更新更快，`spatie/eloquent-sortable` 等包可以获取到最新版本） |
-| `ghproxy.net` | GitHub 镜像代理（解决国内无法直连 GitHub 的问题） |
+| `git@github.com:anyuhanfei/dcat_admin.git` | SSH 地址直接连接 GitHub，不走 API，无频率限制，国内网络可用（需 SSH Key） |
 | `2.0.x-dev` | 对应此仓库的 `2.0` 分支，请勿写 `dev-master` |
 | `minimum-stability: dev` | 允许安装开发版本（必须设置，否则 `x-dev` 版本不会被安装） |
-
-如果你本机**已配置 GitHub SSH Key**，也可以使用 SSH 地址（完全绕过 GitHub API，无限制）：
-
-```json
-{
-    "type": "vcs",
-    "url": "git@github.com:anyuhanfei/dcat_admin.git"
-}
-```
 
 添加完成后运行：
 
 ```bash
-COMPOSER_PROCESS_TIMEOUT=600 composer update dcat/laravel-admin
+COMPOSER_PROCESS_TIMEOUT=600 composer update
 ```
 
-> `COMPOSER_PROCESS_TIMEOUT=600` 将超时时间设为 600 秒（默认 300 秒），避免 git clone 大仓库时超时中断。
+> `COMPOSER_PROCESS_TIMEOUT=600` 将超时时间设为 600 秒（默认 300 秒），避免 SSH 克隆大仓库时超时中断。首次安装需要使用 `composer update`（而非 `update <包名>`）生成 lock 文件。
 
 #### 方式二：命令行安装
 
 ```bash
-# 配置腾讯云镜像（比阿里云镜像更新更及时）
-composer config repositories.packagist composer https://mirrors.tencent.com/composer/
-
-# 配置 GitHub 代理仓库
-composer config repositories.dcat-admin vcs https://ghproxy.net/https://github.com/anyuhanfei/dcat_admin
+# 配置 SSH 仓库
+composer config repositories.dcat-admin vcs git@github.com:anyuhanfei/dcat_admin.git
 
 # 安装（注意版本是 2.0.x-dev，不是 dev-master）
 COMPOSER_PROCESS_TIMEOUT=600 composer require dcat/laravel-admin:2.0.x-dev
@@ -208,12 +193,16 @@ COMPOSER_PROCESS_TIMEOUT=600 composer update dcat/laravel-admin
 
 **2. `Failed to connect to github.com port 443` / `Couldn't connect to server`** — 无法连接 GitHub
 
-确认已使用 `ghproxy.net` 代理地址，或者配置 Git 代理：
+如果使用 HTTPS 地址（`https://github.com/...`）超时，改用 SSH 地址（`git@github.com:...`）即可绕过，SSH 不经过 GitHub API，国内网络通常可用。
+
+如果没有配置 SSH Key，也可以配置 Git 代理：
 
 ```bash
 git config --global http.proxy http://127.0.0.1:7890
 git config --global https.proxy http://127.0.0.1:7890
 ```
+
+> **注意**：`ghproxy.net` 等 GitHub 镜像代理不支持 `git clone` 操作，不能用于 Composer VCS 仓库地址。
 
 **3. `Your requirements could not be resolved` — 版本约束不匹配**
 
@@ -221,7 +210,7 @@ git config --global https.proxy http://127.0.0.1:7890
 
 **4. `spatie/eloquent-sortable` 找不到 5.x 版本**
 
-确认使用的 Composer 镜像为腾讯云（`mirrors.tencent.com`），阿里云镜像中此包最高只有 4.5.2。
+如果已在 `composer.json` 的 `repositories` 中配置了 Composer 镜像（如腾讯云或阿里云），请将其移除。镜像中的 `spatie/eloquent-sortable` 可能版本过旧。不配置镜像时 Composer 默认使用 `packagist.org`，版本是最新的。
 
 **5. `GitHub API limit exhausted`** — GitHub API 请求超限 60 次/小时
 
@@ -232,6 +221,17 @@ composer config --global github-oauth.github.com <你的token>
 ```
 
 Token 前往 https://github.com/settings/tokens/new?scopes=&description=Composer 创建（无权限即可）。
+
+**6. `dcat/laravel-admin 2.0.x-dev requires laravel/framework ~5.5|~6.0|~7.0|~8.0|~9.0|~10.0|~11.0|~12.0` — 镜像缓存与 VCS 仓库冲突**
+
+如果你在 `composer.json` 的 `repositories` 中配置了 Composer 镜像（`type: composer`），该镜像缓存的是**官方** `dcat/laravel-admin` 的元数据（约束为 `~5.5|...|~12.0`），与本 fork 的约束（`~13.0`）冲突。即使 VCS 仓库写的是 `~13.0`，Composer 也会优先使用镜像缓存的元数据做依赖解析。
+
+**解决**：从 `composer.json` 的 `repositories` 中移除镜像配置，只保留 VCS 仓库。如需镜像加速其他包，请使用全局配置：
+
+```bash
+# 全局配置腾讯云镜像（不影响项目级 repositories）
+composer config -g repos.packagist composer https://mirrors.tencent.com/composer/
+```
 
 </details>
 
