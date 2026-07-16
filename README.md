@@ -38,8 +38,7 @@
 - [安装](#安装)
   - [1. 创建 Laravel 项目](#1-创建-laravel-项目)
   - [2. 配置数据库](#2-配置数据库)
-  - [3. 安装 Dcat Admin](#3-安装-dcat-admin)
-  - [3a. 引用 GitHub 开发版本](#3a-引用-github-开发版本)
+  - [3. 安装 Dcat Admin（适配 Laravel 13）](#3-安装-dcat-admin适配-laravel-13)
   - [4. 发布资源](#4-发布资源)
   - [5. 运行安装命令](#5-运行安装命令)
   - [6. 配置 Web 服务器](#6-配置-web-服务器)
@@ -93,7 +92,7 @@
 | 扩展 | Fileinfo PHP Extension |
 | 数据库 | MySQL / MariaDB / PostgreSQL / SQLite |
 
-> **注意**：当前版本 `2.x` 对应 Laravel 13.x 及 PHP 8.3+。旧版 Laravel（5.5 ~ 9.x）请使用 `dcat/laravel-admin` 的 `1.x` 版本。
+> **注意**：此仓库是适配 Laravel 13.x 的分支。原版 `dcat/laravel-admin`（Packagist）仅支持 Laravel ≤ 8.x，如需旧版请使用 `1.x` 版本。
 
 ---
 
@@ -126,48 +125,115 @@ DB_PASSWORD=your_password
 
 请确保数据库已创建且连接信息正确。
 
-### 3. 安装 Dcat Admin
+### 3. 安装 Dcat Admin（适配 Laravel 13）
 
-进入项目目录，使用 Composer 安装（从 Packagist 安装发布版本）：
+原版 `dcat/laravel-admin`（通过 Packagist 安装）仅支持 Laravel ≤ 8.x，**不支持 Laravel 13**。请通过以下方式直接引用此仓库。
 
-```bash
-cd 你的项目目录
+> **版本说明**：此仓库的适配分支为 `2.0`，对应的 Composer 版本为 `2.0.x-dev`。请勿使用 `dev-master`，否则会报版本不匹配错误。
 
-composer require dcat/laravel-admin
-```
+#### 方式一：编辑 composer.json（推荐）
 
-> 如果安装速度慢，可配置国内 Composer 镜像源：
-> ```bash
-> composer config -g repos.packagist composer https://mirrors.aliyun.com/composer/
-> ```
-
-### 3a. 引用 GitHub 开发版本
-
-如果您想抢先体验未发布的最新代码，或需要对包代码作出修改并提交 PR，可以在宿主项目的 `composer.json` 中添加 `repositories` 配置，指向本仓库的 GitHub 地址：
+在宿主项目根目录的 `composer.json` 中修改如下内容（如果已有其他 `repositories` 配置，合并到同一个数组中）：
 
 ```json
 {
     "repositories": [
         {
+            "type": "composer",
+            "url": "https://mirrors.tencent.com/composer/"
+        },
+        {
             "type": "vcs",
-            "url": "https://github.com/jqhph/dcat-admin"
+            "url": "https://ghproxy.net/https://github.com/anyuhanfei/dcat_admin"
         }
     ],
     "require": {
-        "dcat/laravel-admin": "dev-master"
-    }
+        "php": ">=8.3",
+        "laravel/framework": "^13.0",
+        "dcat/laravel-admin": "2.0.x-dev"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
 ```
 
-然后运行：
+各配置项说明：
 
-```bash
-composer update dcat/laravel-admin
+| 配置 | 说明 |
+|------|------|
+| `mirrors.tencent.com` | 腾讯云 Composer 镜像（比阿里云镜像更新更快，`spatie/eloquent-sortable` 等包可以获取到最新版本） |
+| `ghproxy.net` | GitHub 镜像代理（解决国内无法直连 GitHub 的问题） |
+| `2.0.x-dev` | 对应此仓库的 `2.0` 分支，请勿写 `dev-master` |
+| `minimum-stability: dev` | 允许安装开发版本（必须设置，否则 `x-dev` 版本不会被安装） |
+
+如果你本机**已配置 GitHub SSH Key**，也可以使用 SSH 地址（完全绕过 GitHub API，无限制）：
+
+```json
+{
+    "type": "vcs",
+    "url": "git@github.com:anyuhanfei/dcat_admin.git"
+}
 ```
 
-Composer 会直接从 GitHub 拉取源码。
+添加完成后运行：
 
-> **注意**：使用 `vcs` 类型时，宿主项目 `composer.json` 中的 `minimum-stability` 可能需要设为 `"dev"` 并配合 `"prefer-stable": true`。
+```bash
+COMPOSER_PROCESS_TIMEOUT=600 composer update dcat/laravel-admin
+```
+
+> `COMPOSER_PROCESS_TIMEOUT=600` 将超时时间设为 600 秒（默认 300 秒），避免 git clone 大仓库时超时中断。
+
+#### 方式二：命令行安装
+
+```bash
+# 配置腾讯云镜像（比阿里云镜像更新更及时）
+composer config repositories.packagist composer https://mirrors.tencent.com/composer/
+
+# 配置 GitHub 代理仓库
+composer config repositories.dcat-admin vcs https://ghproxy.net/https://github.com/anyuhanfei/dcat_admin
+
+# 安装（注意版本是 2.0.x-dev，不是 dev-master）
+COMPOSER_PROCESS_TIMEOUT=600 composer require dcat/laravel-admin:2.0.x-dev
+```
+
+<details>
+<summary><b>常见安装报错处理</b></summary>
+
+**1. `The process ... exceeded the timeout of 300 seconds`** — Git 克隆超时
+
+```bash
+# 增大超时时间重试
+COMPOSER_PROCESS_TIMEOUT=600 composer update dcat/laravel-admin
+```
+
+**2. `Failed to connect to github.com port 443` / `Couldn't connect to server`** — 无法连接 GitHub
+
+确认已使用 `ghproxy.net` 代理地址，或者配置 Git 代理：
+
+```bash
+git config --global http.proxy http://127.0.0.1:7890
+git config --global https.proxy http://127.0.0.1:7890
+```
+
+**3. `Your requirements could not be resolved` — 版本约束不匹配**
+
+确认 `composer.json` 中写的是 `"dcat/laravel-admin": "2.0.x-dev"` 而非 `dev-master`，且已设置 `"minimum-stability": "dev"`。
+
+**4. `spatie/eloquent-sortable` 找不到 5.x 版本**
+
+确认使用的 Composer 镜像为腾讯云（`mirrors.tencent.com`），阿里云镜像中此包最高只有 4.5.2。
+
+**5. `GitHub API limit exhausted`** — GitHub API 请求超限 60 次/小时
+
+创建 GitHub Token 提升限额：
+
+```bash
+composer config --global github-oauth.github.com <你的token>
+```
+
+Token 前往 https://github.com/settings/tokens/new?scopes=&description=Composer 创建（无权限即可）。
+
+</details>
 
 ### 4. 发布资源
 
@@ -181,11 +247,13 @@ php artisan admin:publish
 
 ### 5. 运行安装命令
 
-执行安装命令来创建数据表并写入初始数据：
+执行安装命令来创建数据表并写入初始数据，**同时会生成 `app/Admin/` 目录**（包含后台控制器、路由、启动文件等）：
 
 ```bash
 php artisan admin:install
 ```
+
+> **注意**：安装后如果 `app/Admin/` 目录不存在，说明 `admin:install` 尚未执行或不完整。运行此命令后才会生成该目录。
 
 **常见错误处理**：
 
@@ -350,31 +418,46 @@ php artisan dusk
 
 ## 常见问题
 
-### 1. 安装后访问 `http://localhost/admin` 出现 404
+### 6. 安装后 `app/Admin/` 目录不存在
+
+- `composer require` 只是将包安装到 `vendor/` 目录，不会自动生成 `app/Admin/`
+- 需要先执行 `php artisan admin:publish`，再执行 `php artisan admin:install`
+- `admin:install` 执行成功后会创建以下结构：
+  ```
+  app/Admin/
+  ├── Controllers/
+  │   ├── AuthController.php
+  │   └── HomeController.php
+  ├── Metrics/Examples/
+  ├── bootstrap.php
+  └── routes.php
+  ```
+
+### 7. 安装后访问 `http://localhost/admin` 出现 404
 
 - 确认已正确运行 `php artisan admin:install`，且没有报错
 - 确认 Web 服务器 `document root` 指向了 `public` 目录
 - 尝试运行 `php artisan route:list | grep admin` 查看路由是否注册成功
 
-### 2. 页面样式错乱（CSS/JS 加载失败）
+### 8. 页面样式错乱（CSS/JS 加载失败）
 
 - 确保已运行 `php artisan admin:publish` 发布前端资源
 - 检查 `public/vendor/dcat-admin` 目录是否存在
 - 如果使用 HTTPS，需要在 `.env` 中设置 `ADMIN_HTTPS=true`
 - 运行 `php artisan vendor:publish --tag=dcat-admin-assets --force` 重新发布静态资源
 
-### 3. 上传文件失败
+### 9. 上传文件失败
 
 - 检查 `storage` 目录是否可写：`chmod -R 775 storage`
 - 检查 `config/admin.php` 中 `upload.disk` 的配置
 - 确保 `php artisan storage:link` 已运行创建符号链接
 
-### 4. 修改配置不生效
+### 10. 修改配置不生效
 
 - 清空配置缓存：`php artisan config:clear`
 - 如果修改了路由前缀，需要同步修改 `config/admin.php` 中的 `route.prefix`
 
-### 5. 自定义登录页面
+### 11. 自定义登录页面
 
 在 `config/admin.php` 中修改 `auth.controller` 为你自定义的认证控制器。
 
